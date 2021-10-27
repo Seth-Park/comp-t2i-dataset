@@ -26,6 +26,9 @@ from scipy import linalg
 import pathlib
 import urllib
 import warnings
+import json
+from PIL import Image
+from tqdm import tqdm
 
 
 class InvalidFIDException(Exception):
@@ -92,7 +95,7 @@ def get_activations(images, sess, batch_size=50, verbose=False):
         batch_size = n_images
     n_batches = n_images // batch_size  # drops the last batch if < batch_size
     pred_arr = np.empty((n_batches * batch_size, 2048))
-    for i in range(n_batches):
+    for i in tqdm(range(n_batches)):
         if verbose:
             print("\rPropagating batch %d/%d" % (i + 1, n_batches), end="", flush=True)
         start = i * batch_size
@@ -230,7 +233,7 @@ def get_activations_from_files(files, sess, batch_size=50, verbose=False):
         batch_size = n_imgs
     n_batches = n_imgs // batch_size + 1
     pred_arr = np.empty((n_imgs, 2048))
-    for i in range(n_batches):
+    for i in tqdm(range(n_batches)):
         if verbose:
             print("\rPropagating batch %d/%d" % (i + 1, n_batches), end="", flush=True)
         start = i * batch_size
@@ -300,6 +303,9 @@ def _handle_path(path, sess, low_profile=False):
         f = np.load(path)
         m, s = f['mu'][:], f['sigma'][:]
         f.close()
+    elif path.endswith('.json'):
+        with open(path, 'r') as f:
+            results = json.load(f)
     else:
         path = pathlib.Path(path)
         files = list(path.glob('*.jpg')) + list(path.glob('*.png'))
@@ -328,6 +334,26 @@ def calculate_fid_given_paths(paths, inception_path, low_profile=False):
         fid_value = calculate_frechet_distance(m1, s1, m2, s2)
         return fid_value
 
+
+def calculate_fid_given_files(pred_files, gt_files, inception_path, low_profile=False):
+    inception_path = check_or_download_inception(inception_path)
+    create_inception_graph(str(inception_path))
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        if low_profile:
+            m1, s1 = calculate_activation_statistics_from_files(pred_files)
+            m2, s2 = calculate_activation_statistics_from_files(gt_files)
+        else:
+            x = np.array([np.array(Image.open(str(fn))).astype(np.float32) for fn in pred_files])
+            m1, s1 = calculate_activation_statistics(x, sess)
+            del x  # clean up memory
+
+            x = np.array([np.array(Image.open(str(fn)).convert("RGB").resize((256, 256))).astype(np.float32) for fn in gt_files])
+            m2, s2 = calculate_activation_statistics(x, sess)
+            del x  # clean up memory
+
+        fid_value = calculate_frechet_distance(m1, s1, m2, s2)
+        return fid_value
 
 if __name__ == "__main__":
     from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter

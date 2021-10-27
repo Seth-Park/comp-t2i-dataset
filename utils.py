@@ -9,15 +9,22 @@ def gather_by_pair(result, anno_data):
 
     for entry in result:
         img_id, cap_id, gen_img_path, r_precision_prediction = entry
-        caption_data = anno_data[img_id][cap_id]
-        text = caption_data["text"]
-
-        pair = caption_data["changes_made"]
+        data = anno_data[img_id]
+        if cap_id in data:
+            caption_data = data[cap_id]
+        else:
+            continue
+        text = caption_data["swapped_text"]
+        changes = caption_data["changes_made"]
+        new_adj = changes["new_adj"]
+        noun = changes["noun"]
+        pair = f"{new_adj}_{noun}"
         gathered_result[pair].append({
             "prediction": r_precision_prediction,
             "img_path": gen_img_path,
             "text": text
         })
+
     return gathered_result
 
 
