@@ -7,6 +7,8 @@ from models.clip_r_precision import CLIPRPrecision
 from clip import clip
 from tqdm import tqdm
 
+from PIL import Image
+
 
 if __name__ == "__main__":
     """
@@ -90,7 +92,10 @@ if __name__ == "__main__":
     for entry in tqdm(result):
         img_id, cap_id, gen_img_path, r_precision_prediction = entry
 
-        image = dataset.get_image(img_id, raw=False, preprocess=False).unsqueeze(0).cuda()
+        # image = dataset.get_image(img_id, raw=False, preprocess=False).unsqueeze(0).cuda()
+        image = Image.open(gen_img_path).convert("RGB")
+        if dataset.image_transform:
+            image = dataset.image_transform(image)
         try:
             if args.split == "test_swapped":
                 swapped = True
