@@ -26,9 +26,6 @@ def r_precision(candidates, num_chunks=10):
 
 
 if __name__ == "__main__":
-    """
-    python compute_r_precision.py --dataset C-CUB --comp_type color --split test_swapped --pred_path /shared/dhpseth/comp-DMGAN/output/comp_birds_a_b_color_DMGAN_2020_11_01_19_29_59/Model/netG_epoch_800/test_seen_swapped++/results.pkl
-    """
     from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)

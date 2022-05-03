@@ -11,13 +11,6 @@ from PIL import Image
 
 
 if __name__ == "__main__":
-    """
-    python make_clip_prediction.py --dataset C-CUB --comp_type color --split test_swapped \
-    --ckpt /home/dhpseth/code/CLIP-R-Precision/outputs/cub/2021-05-26T17-22-56/checkpoints/epoch_180.ckpt \
-    --gpu 1 \
-    --pred_path /shared/dhpseth/comp-DMGAN/output/comp_birds_a_b_color_DMGAN_2020_11_01_19_29_59/Model/netG_epoch_800/test_seen_swapped++/results.pkl
-    --out_path ./clip_results.pkl
-    """
     from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
@@ -88,14 +81,13 @@ if __name__ == "__main__":
 
     # run prediction
     clip_result = []
-    missing = []
     for entry in tqdm(result):
         img_id, cap_id, gen_img_path, r_precision_prediction = entry
 
-        # image = dataset.get_image(img_id, raw=False, preprocess=False).unsqueeze(0).cuda()
         image = Image.open(gen_img_path).convert("RGB")
         if dataset.image_transform:
             image = dataset.image_transform(image)
+        image = image.unsqueeze(0).cuda()
         try:
             if args.split == "test_swapped":
                 swapped = True
@@ -103,7 +95,7 @@ if __name__ == "__main__":
                 swapped = False
             text_conditioned = dataset.get_text(img_id, cap_id, raw=False, swapped=swapped).cuda()
         except:
-            missing.append(entry)
+            continue
         mismatched_captions = dataset.get_mismatched_caption(img_id).cuda()
         all_texts = torch.cat([text_conditioned, mismatched_captions], 0)
 

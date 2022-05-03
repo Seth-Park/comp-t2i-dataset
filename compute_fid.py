@@ -1,16 +1,13 @@
 import os
 import pickle
+import torch
+import random
 
 from utils import gather_by_pair, balance_candidates
-from fid import calculate_fid_given_files
+from fid.fid_score import calculate_fid_given_files
+from fid.inception import InceptionV3
 
 if __name__ == "__main__":
-    """
-    python compute_fid.py --dataset C-CUB --comp_type color --split test_swapped \
-    --gt_img_root /home/dhpseth/scratch/control_gan_data/birds/CUB_200_2011/images \
-    --pred_path /shared/dhpseth/comp-DMGAN/output/comp_birds_a_b_color_DMGAN_2020_11_01_19_29_59/Model/netG_epoch_800/test_seen_swapped++/results.pkl \
-    --gpu 0
-    """
     from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
 
@@ -26,14 +23,30 @@ if __name__ == "__main__":
                         help="Path to the generated image results or their .npz statistics file.")
     parser.add_argument("--gt_path", default="", type=str,
                         help="Path to the groundtruth image .npz statistics file (will be computed if not provided).")
-    parser.add_argument("--gpu", default="", type=str,
-                        help="GPU to use (leave blank for CPU only)")
-    parser.add_argument("--inception", type=str, default=None,
-                        help="Path to Inception model (will be downloaded if not provided)")
-    parser.add_argument("--lowprofile", action="store_true",
-                        help="Keep only one batch of images in memory at a time. This reduces memory footprint, but may decrease speed slightly.")
+    parser.add_argument('--device', type=str, default=None,
+                        help='Device to use. Like cuda, cuda:0 or cpu')
+    parser.add_argument('--batch-size', type=int, default=50,
+                        help='Batch size to use')
+    parser.add_argument('--num-workers', type=int,
+                        help=('Number of processes to use for data loading. '
+                              'Defaults to `min(8, num_cpus)`'))
+    parser.add_argument('--dims', type=int, default=2048,
+                        choices=list(InceptionV3.BLOCK_INDEX_BY_DIM),
+                        help=('Dimensionality of Inception features to use. '
+                              'By default, uses pool3 features'))
+
     args = parser.parse_args()
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+
+    if args.device is None:
+        device = torch.device('cuda' if (torch.cuda.is_available()) else 'cpu')
+    else:
+        device = torch.device(args.device)
+
+    if args.num_workers is None:
+        num_avail_cpus = len(os.sched_getaffinity(0))
+        num_workers = min(num_avail_cpus, 8)
+    else:
+        num_workers = args.num_workers
 
     anno_data_path = f"./data/{args.dataset}/{args.comp_type}/data.pkl"
     split_path = f"./data/{args.dataset}/{args.comp_type}/split.pkl"
@@ -74,8 +87,14 @@ if __name__ == "__main__":
     for cand in candidates:
         gen_image_paths.append(cand["img_path"])
 
-    fid_value = calculate_fid_given_files(gen_image_paths, gt_image_paths,
-                                          args.inception, low_profile=args.lowprofile)
+    fid_value = calculate_fid_given_files(
+        random.sample(gen_image_paths, 10000),
+        gt_image_paths,
+        args.batch_size,
+        device,
+        args.dims,
+        num_workers
+    )
 
     print("FID score: ")
     print(f"\t {fid_value:.2f}")

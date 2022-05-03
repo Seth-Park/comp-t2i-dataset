@@ -215,6 +215,7 @@ class CFlowersDataset(BaseDataset):
                  image_transform=None,
                  tokenizer=None,
                  class_id_txt_path=None):
+        self.class_id_txt_path = class_id_txt_path
         super().__init__(
             data_dir,
             dataset_name,
@@ -223,7 +224,6 @@ class CFlowersDataset(BaseDataset):
             image_transform,
             tokenizer
         )
-        self.class_id_txt_path = class_id_txt_path
 
     def load_class_ids(self):
         if self.class_id_txt_path is not None:
@@ -234,7 +234,7 @@ class CFlowersDataset(BaseDataset):
                 line = line.strip()
                 image_id, class_id = line.split("\t")
                 image_id_to_class_id[image_id] = class_id
-                return image_id_to_class_id
+            return image_id_to_class_id
         else:
             return super().load_class_ids()
 
